@@ -1,8 +1,8 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
+import fs from "fs";
 import jwt from "jsonwebtoken";
-import { createServer as createViteServer } from "vite";
 import { dbInstance } from "./src/server/dataStore";
 import { BloodGroup } from "./src/types";
 
@@ -712,6 +712,7 @@ app.post("/api/stocks/set", authenticateToken, (req: AuthRequest, res) => {
 async function startServer() {
   // Integrate Vite Asset Bundler
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -720,12 +721,18 @@ async function startServer() {
     app.use(vite.middlewares);
     console.log("Vite middleware mounted in DEVELOPMENT mode");
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const candidatePaths = [
+      path.join(process.cwd(), "dist"),
+      __dirname,
+      path.join(__dirname, "..", "dist"),
+    ];
+    let distPath = candidatePaths.find((p) => fs.existsSync(path.join(p, "index.html"))) || path.join(process.cwd(), "dist");
+
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
-    console.log("Serving compiled production files from static folder /dist");
+    console.log(`Serving compiled production files from static folder: ${distPath}`);
   }
 
   app.listen(PORT, "0.0.0.0", () => {

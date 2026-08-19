@@ -3,7 +3,9 @@ name: Deploy React App to GitHub Pages
 on:
   push:
     branches:
-      - main # default branch
+      - main
+      - master
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,13 +27,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build Project
-        run: npx vite build
+        run: npm run build:client
+        env:
+          GITHUB_PAGES: "true"
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
