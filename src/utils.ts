@@ -199,9 +199,9 @@ export function getApiUrl(endpoint: string): string {
     return `${formattedBase}${endpoint}`;
   }
 
-  // Auto-detect Netlify static hosting and route to GCP Cloud Run server API
-  const isNetlify = window.location.hostname.includes("netlify.app");
-  if (isNetlify) {
+  // Auto-detect Netlify or GitHub Pages static hosting and route to GCP Cloud Run server API
+  const isExternalStatic = window.location.hostname.includes("netlify.app") || window.location.hostname.includes("github.io");
+  if (isExternalStatic) {
     return `https://ais-pre-7anhgdwwlcid5d5alee2fw-53511548827.asia-southeast1.run.app${endpoint}`;
   }
 
