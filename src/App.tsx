@@ -131,6 +131,7 @@ export default function App() {
   // Set successfully loaded authenticated user context
   const handleAuthSuccess = (token: string, user: any) => {
     localStorage.setItem("blood_donation_token", token);
+    localStorage.setItem("blood_donation_user", JSON.stringify(user));
     setCurrentUser(user);
     showToast(
       lang === "bn"
@@ -150,6 +151,7 @@ export default function App() {
   // Clear session token to log out
   const handleLogout = () => {
     localStorage.removeItem("blood_donation_token");
+    localStorage.removeItem("blood_donation_user");
     setCurrentUser(null);
     showToast(
       lang === "bn" ? "সফলভাবে লগ-আউট সম্পন্ন হয়েছে।" : "You have logged out successfully.",
