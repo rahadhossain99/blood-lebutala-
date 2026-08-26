@@ -30,10 +30,31 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
   const [lastDonationDate, setLastDonationDate] = useState("");
   const [avatarBase64, setAvatarBase64] = useState("");
   const [uploadingImg, setUploadingImg] = useState(false);
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+
+  // Trigger Google OAuth Direct Flow (Bypasses Client-side Firebase domain restriction)
+  const handleDirectOAuthFallback = async () => {
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      const currentReturnUrl = window.location.origin + window.location.pathname;
+      const data = await apiClient.getGoogleAuthUrl(currentReturnUrl);
+      
+      const authWindow = window.open(data.url, "google_oauth_popup", "width=500,height=680");
+      if (!authWindow || authWindow.closed || typeof authWindow.closed === "undefined") {
+        window.location.href = data.url;
+      }
+    } catch (fallbackErr: any) {
+      setErrorMsg(fallbackErr.message || (lang === "bn" ? "গুগল লগইন সম্পন্ন করা যায়নি।" : "Google sign in failed."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Trigger Firebase Google Login popup or redirect
   const handleGoogleSignIn = async () => {
     setErrorMsg("");
+    setUnauthorizedDomain(null);
     setLoading(true);
     try {
       // 1. Try Firebase Google Popup
@@ -57,18 +78,20 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
         setLoading(false);
         return;
       }
+
+      // If Firebase blocked due to unauthorized domain (e.g. on GitHub Pages or custom domain)
+      if (err.code === "auth/unauthorized-domain" || err.message?.includes("unauthorized-domain")) {
+        const currentHost = window.location.hostname;
+        setUnauthorizedDomain(currentHost);
+        console.warn(`Firebase auth/unauthorized-domain encountered for host: ${currentHost}`);
+        // Seamlessly trigger direct Google OAuth portal so user is not blocked
+        await handleDirectOAuthFallback();
+        return;
+      }
+
       console.warn("Firebase popup note:", err);
       // Fallback to OAuth endpoint URL
-      try {
-        const currentReturnUrl = window.location.origin + window.location.pathname;
-        const data = await apiClient.getGoogleAuthUrl(currentReturnUrl);
-        const authWindow = window.open(data.url, "google_oauth_popup", "width=500,height=680");
-        if (!authWindow || authWindow.closed || typeof authWindow.closed === "undefined") {
-          window.location.href = data.url;
-        }
-      } catch (fallbackErr: any) {
-        setErrorMsg(err.message || fallbackErr.message || (lang === "bn" ? "গুগল লগইন সম্পন্ন করা যায়নি।" : "Google sign in failed."));
-      }
+      await handleDirectOAuthFallback();
     } finally {
       setLoading(false);
     }
@@ -212,6 +235,28 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
 
         {/* Form area */}
         <form onSubmit={handleSubmit} id="auth-form" className="p-6 md:p-8 space-y-4 max-h-[75vh] overflow-y-auto">
+          {unauthorizedDomain && (
+            <div id="unauthorized-domain-guide" className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-sans space-y-2">
+              <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                <span>🛡️</span>
+                <span>{lang === "bn" ? `Firebase ডোমেইন অনুমোদন নোটিশ (${unauthorizedDomain})` : `Firebase Domain Authorization Notice`}</span>
+              </div>
+              <p className="leading-relaxed">
+                {lang === "bn"
+                  ? `GitHub Pages (${unauthorizedDomain}) থেকে সরাসরি ক্লায়েন্ট-সাইড Firebase পপআপ ব্যবহারের জন্য Firebase Console-এ ডোমেইনটি যোগ করতে হবে:`
+                  : `To use direct Firebase Google popups on ${unauthorizedDomain}, add this domain to Authorized Domains:`}
+              </p>
+              <div className="bg-amber-100/70 p-2 rounded-lg font-mono text-[11px] text-amber-900 select-all border border-amber-200">
+                {unauthorizedDomain}
+              </div>
+              <p className="text-[11px] text-amber-700">
+                {lang === "bn"
+                  ? "Firebase Console > Authentication > Settings > Authorized domains > Add domain এ উপরের লিঙ্কটি পেস্ট করুন।"
+                  : "Go to Firebase Console > Authentication > Settings > Authorized domains > Add domain and paste the host above."}
+              </p>
+            </div>
+          )}
+
           {errorMsg && (
             <div id="auth-error-alert" className="p-3 bg-red-50 border-l-4 border-red-500 rounded text-red-700 text-sm font-sans flex items-center gap-2">
               <span className="font-semibold">⚠️</span> {errorMsg}
