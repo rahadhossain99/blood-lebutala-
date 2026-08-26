@@ -1,5 +1,6 @@
 import { getApiUrl } from "./utils";
 import { User, Appointment, BloodGroup } from "./types";
+import { FALLBACK_DONORS, FALLBACK_STATS } from "./fallbackData";
 
 export interface DonorFilters {
   bloodGroup?: BloodGroup | string;
@@ -20,22 +21,47 @@ export const apiClient = {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const resp = await fetch(getApiUrl(url), { headers });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to fetch donors list");
+    try {
+      const resp = await fetch(getApiUrl(url), { headers });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (err) {
+      console.warn("Backend API fetch failed, activating local donor directory fallback:", err);
     }
-    return resp.json();
+
+    // Local client-side fallback (ideal for GitHub Pages / static hosting without node server)
+    let list = [...FALLBACK_DONORS];
+    if (filters?.bloodGroup) {
+      list = list.filter((d) => d.bloodGroup === filters.bloodGroup);
+    }
+    if (filters?.district) {
+      list = list.filter((d) => d.district?.toLowerCase().includes(filters.district!.toLowerCase()));
+    }
+    if (filters?.isAvailable !== undefined) {
+      list = list.filter((d) => d.isAvailable === filters.isAvailable);
+    }
+    // If not logged in, mask phone numbers for privacy
+    if (!token) {
+      list = list.map((d) => ({
+        ...d,
+        phone: d.phone ? d.phone.substring(0, 5) + "******" : "",
+      }));
+    }
+    return list;
   },
 
   // 2. Fetch Dashboard Metrics & Live Stock
   async getStats(): Promise<any> {
-    const resp = await fetch(getApiUrl("/api/stats"));
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to fetch stats");
+    try {
+      const resp = await fetch(getApiUrl("/api/stats"));
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (err) {
+      console.warn("Backend stats API failed, activating static stats fallback:", err);
     }
-    return resp.json();
+    return FALLBACK_STATS;
   },
 
   // 3. User Login
