@@ -2,6 +2,8 @@ import { BloodGroup } from "./types";
 
 // Standard Districts of Bangladesh
 export const BANGLADESH_DISTRICTS = [
+  "Lebutala, Jashore (লেবুতলা, যশোর)",
+  "Jashore (যশোর)",
   "Dhaka (ঢাকা)",
   "Chittagong (চট্টগ্রাম)",
   "Sylhet (সিলেট)",
@@ -14,7 +16,17 @@ export const BANGLADESH_DISTRICTS = [
   "Noakhali (নোয়াখালী)",
   "Cox's Bazar (কক্সবাজার)",
   "Bogura (বগুড়া)",
-  "Jashore (যশোর)",
+  "Kushtia (কুষ্টিয়া)",
+  "Satkhira (সাতক্ষীরা)",
+  "Magura (মাগুরা)",
+  "Narail (নড়াইল)",
+  "Jhenaidah (ঝিনাইদহ)",
+  "Gazipur (গাজীপুর)",
+  "Narayanganj (নারায়ণগঞ্জ)",
+  "Faridpur (ফরিদপুর)",
+  "Pabna (পাবনা)",
+  "Dinajpur (দিনাজপুর)",
+  "Tangail (টাঙ্গাইল)"
 ];
 
 // Calculate Donor Eligibility (120 days cycle)

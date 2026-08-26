@@ -10,7 +10,8 @@ import AppointmentsSection from "./components/AppointmentsSection";
 import GuidelinesSection from "./components/GuidelinesSection";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import AuthModal from "./components/AuthModal";
-import { AlertCircle, CheckCircle2, Heart, Info, ArrowUp } from "lucide-react";
+import CompleteProfileModal from "./components/CompleteProfileModal";
+import { AlertCircle, CheckCircle2, Heart, Info, ArrowUp, Sparkles, UserCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
   });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [preSelectedDonor, setPreSelectedDonor] = useState<User | null>(null);
 
   // Toast notifications state
@@ -73,6 +75,10 @@ export default function App() {
     try {
       const data = await apiClient.getMe(token);
       setCurrentUser(data.user);
+      // If user profile is incomplete, prompt to complete
+      if (!data.user.phone || data.user.phone.length < 11) {
+        setProfileModalOpen(true);
+      }
     } catch (err) {
       console.error("Session verification failed", err);
       localStorage.removeItem("blood_donation_token");
@@ -99,6 +105,7 @@ export default function App() {
     // Check if coming back from standard dynamic callback redirect or Google OAuth param
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get("token");
+    const isNewFromUrl = urlParams.get("is_new") === "true";
     if (tokenFromUrl) {
       localStorage.setItem("blood_donation_token", tokenFromUrl);
     }
@@ -113,6 +120,9 @@ export default function App() {
           : "Google sign-in authenticated successfully!",
         "success"
       );
+      if (isNewFromUrl) {
+        setProfileModalOpen(true);
+      }
     }
     restoreUserSession();
     fetchDashboardStats();
@@ -129,6 +139,12 @@ export default function App() {
       "success"
     );
     fetchDashboardStats();
+    // Prompt to complete profile if phone is missing or length < 11
+    if (!user.phone || user.phone.length < 11) {
+      setTimeout(() => {
+        setProfileModalOpen(true);
+      }, 600);
+    }
   };
 
   // Clear session token to log out
@@ -140,6 +156,18 @@ export default function App() {
       "info"
     );
     handleTabChange("home");
+  };
+
+  // Profile update callback
+  const handleProfileUpdated = (updatedUser: any) => {
+    setCurrentUser(updatedUser);
+    showToast(
+      lang === "bn"
+        ? "আপনার রক্তদাতা প্রোফাইল সফলভাবে আপডেট হয়েছে!"
+        : "Your donor profile has been updated successfully!",
+      "success"
+    );
+    fetchDashboardStats();
   };
 
   // Update administrative appointment status (Pending, Approved, Completed, Cancelled)
@@ -174,10 +202,38 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenAuth={() => setAuthModalOpen(true)}
+        onOpenProfile={() => setProfileModalOpen(true)}
         lang={lang}
         setLang={setLang}
         translations={translations}
       />
+
+      {/* Incomplete Profile Alert Banner */}
+      {currentUser && (!currentUser.phone || currentUser.phone.length < 11) && (
+        <div 
+          id="incomplete-profile-banner"
+          className="bg-gradient-to-r from-amber-500 via-rose-500 to-red-600 text-white py-2.5 px-4 sm:px-6 shadow-md"
+        >
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs sm:text-sm font-semibold">
+            <div className="flex items-center gap-2 text-center sm:text-left">
+              <Sparkles className="w-4 h-4 text-amber-200 shrink-0 animate-pulse" />
+              <span>
+                {lang === "bn"
+                  ? `স্বাগতম ${currentUser.name}! জরুরী রোগী ও রক্ত সন্ধানীদের প্রয়োজনে আপনার রক্তদাতা প্রোফাইলটি সম্পূর্ণ করুন।`
+                  : `Welcome ${currentUser.name}! Complete your donor profile to be reachable in emergencies.`}
+              </span>
+            </div>
+            <button
+              id="btn-banner-complete-profile"
+              onClick={() => setProfileModalOpen(true)}
+              className="px-3.5 py-1 rounded-full bg-white text-rose-700 font-bold text-xs hover:bg-rose-50 shadow-sm transition-all shrink-0 cursor-pointer flex items-center gap-1"
+            >
+              <UserCheck size={14} />
+              <span>{lang === "bn" ? "প্রোফাইল সম্পূর্ণ করুন" : "Complete Profile"}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. PWA Install Prompt Banner */}
       <PWAInstallBanner lang={lang} />
@@ -336,6 +392,16 @@ export default function App() {
         lang={lang}
         translations={translations}
         onAuthSuccess={handleAuthSuccess}
+      />
+
+      {/* 7. Dedicated Complete Profile Modal */}
+      <CompleteProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        currentUser={currentUser}
+        lang={lang}
+        translations={translations}
+        onProfileUpdated={handleProfileUpdated}
       />
     </div>
   );

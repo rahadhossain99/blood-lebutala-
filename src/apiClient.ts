@@ -52,6 +52,26 @@ export const apiClient = {
     return data;
   },
 
+  // 3.1 Firebase Google Auth Sync
+  async firebaseLogin(payload: {
+    email: string;
+    name?: string;
+    avatarUrl?: string;
+    firebaseUid?: string;
+    phone?: string;
+  }): Promise<{ token: string; user: User; isNew: boolean }> {
+    const resp = await fetch(getApiUrl("/api/auth/firebase-login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.error || "Firebase authentication failed");
+    }
+    return data;
+  },
+
   // 4. User Registration
   async register(userData: Record<string, any>): Promise<{ token: string; user: User }> {
     const resp = await fetch(getApiUrl("/api/auth/register"), {
@@ -96,11 +116,16 @@ export const apiClient = {
   },
 
   // 7. Fetch Google Auth URL
-  async getGoogleAuthUrl(): Promise<{ url: string; simulated: boolean }> {
-    const resp = await fetch(getApiUrl("/api/auth/google/url"));
+  async getGoogleAuthUrl(returnUrl?: string): Promise<{ url: string; simulated: boolean }> {
+    const query = returnUrl ? `?return_url=${encodeURIComponent(returnUrl)}` : "";
+    const resp = await fetch(getApiUrl(`/api/auth/google/url${query}`));
     const data = await resp.json();
     if (!resp.ok) {
       throw new Error(data.error || "Failed to retrieve Google Auth URL");
+    }
+    // If the returned URL is relative (e.g. simulator-page), convert to absolute backend URL
+    if (data.url && data.url.startsWith("/")) {
+      data.url = getApiUrl(data.url);
     }
     return data;
   },

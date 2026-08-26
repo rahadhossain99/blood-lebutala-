@@ -1,7 +1,7 @@
 import React from "react";
 import { 
   Home, Search, Calendar, BarChart3, BookOpen, 
-  LogIn, LogOut, Globe, ShieldAlert 
+  LogIn, LogOut, Globe, ShieldAlert, User, Sparkles
 } from "lucide-react";
 
 interface NavbarProps {
@@ -10,6 +10,7 @@ interface NavbarProps {
   currentUser: any;
   onLogout: () => void;
   onOpenAuth: () => void;
+  onOpenProfile?: () => void;
   lang: "bn" | "en";
   setLang: (lang: "bn" | "en") => void;
   translations: any;
@@ -21,6 +22,7 @@ export default function Navbar({
   currentUser,
   onLogout,
   onOpenAuth,
+  onOpenProfile,
   lang,
   setLang,
   translations,
@@ -32,6 +34,8 @@ export default function Navbar({
     { id: "stats", label: translations.dashboard, icon: BarChart3 },
     { id: "guidelines", label: translations.guidelines, icon: BookOpen },
   ];
+
+  const isProfileIncomplete = currentUser && (!currentUser.phone || currentUser.phone.length < 11);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs" id="navbar-header">
@@ -87,7 +91,7 @@ export default function Navbar({
           </nav>
 
           {/* Dynamic Actions Ribbon */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Quick Language Toggle Button */}
             <button
               onClick={() => setLang(lang === "bn" ? "en" : "bn")}
@@ -101,32 +105,42 @@ export default function Navbar({
 
             {/* User Session Indicators */}
             {currentUser ? (
-              <div className="flex items-center gap-3" id="user-metadata-section">
-                {/* Visual Avatar detail */}
-                <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1 leading-none">
-                    {currentUser.role === "admin" && (
-                      <ShieldAlert size={12} className="text-rose-600" title="System Admin" />
-                    )}
-                    {currentUser.name}
-                  </span>
-                  <span className="text-[10px] text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded-full mt-1">
-                    {translations.bloodGroup}: {currentUser.bloodGroup}
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 sm:gap-3" id="user-metadata-section">
+                {/* Profile Edit button with incomplete badge */}
+                <button
+                  onClick={onOpenProfile}
+                  id="navbar-profile-btn"
+                  className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100/70 text-gray-800 transition-all cursor-pointer relative"
+                  title={lang === "bn" ? "প্রোফাইল সম্পাদন করুন" : "Edit Profile"}
+                >
+                  {isProfileIncomplete && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                    </span>
+                  )}
+                  {currentUser.avatarUrl ? (
+                    <img
+                      src={currentUser.avatarUrl}
+                      alt={currentUser.name}
+                      className="h-7 w-7 rounded-full object-cover ring-2 ring-rose-200 shadow-xs shrink-0"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-7 w-7 bg-gradient-to-tr from-rose-600 to-red-600 text-white rounded-full flex items-center justify-center font-bold text-xs ring-2 ring-rose-100 select-none shrink-0">
+                      {currentUser.name?.substring(0, 1) || "U"}
+                    </div>
+                  )}
 
-                {currentUser.avatarUrl ? (
-                  <img
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.name}
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-rose-100 shadow-xs shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="h-8 w-8 bg-gradient-to-tr from-rose-600 to-red-600 text-white rounded-full flex items-center justify-center font-bold text-xs ring-2 ring-rose-100 select-none shrink-0">
-                    {currentUser.name?.substring(0, 1) || "U"}
+                  <div className="hidden md:flex flex-col items-start text-left">
+                    <span className="text-xs font-bold text-gray-900 flex items-center gap-1 leading-none">
+                      {currentUser.name}
+                    </span>
+                    <span className="text-[10px] text-rose-700 font-bold mt-0.5 flex items-center gap-0.5">
+                      {currentUser.bloodGroup} • {isProfileIncomplete ? (lang === "bn" ? "অসম্পূর্ণ" : "Incomplete") : (lang === "bn" ? "প্রোফাইল" : "Profile")}
+                    </span>
                   </div>
-                )}
+                </button>
 
                 {/* Log Out option */}
                 <button

@@ -4,6 +4,7 @@ import { X, Mail, Phone, Lock, User, MapPin, Calendar, Heart, Loader2 } from "lu
 import { BloodGroup } from "../types";
 import { BANGLADESH_DISTRICTS } from "../utils";
 import { apiClient } from "../apiClient";
+import { signInWithGoogle, getRedirectResult, auth } from "../firebase";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -30,20 +31,70 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
   const [avatarBase64, setAvatarBase64] = useState("");
   const [uploadingImg, setUploadingImg] = useState(false);
 
-  // Trigger Google Login popup
+  // Trigger Firebase Google Login popup or redirect
   const handleGoogleSignIn = async () => {
     setErrorMsg("");
+    setLoading(true);
     try {
-      const data = await apiClient.getGoogleAuthUrl();
-      
-      const authWindow = window.open(data.url, "google_oauth_popup", "width=500,height=680");
-      if (!authWindow) {
-        setErrorMsg(lang === "bn" ? "পপ-আপ বন্ধ করা আছে। অনুগ্রহ করে ব্রাউজার পপ-আপ অনুমোদন করুন।" : "Popup is blocked. Please enable browser popups.");
+      // 1. Try Firebase Google Popup
+      const { firebaseUser } = await signInWithGoogle();
+      if (firebaseUser && firebaseUser.email) {
+        const syncResult = await apiClient.firebaseLogin({
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || "",
+          avatarUrl: firebaseUser.photoURL || "",
+          firebaseUid: firebaseUser.uid,
+          phone: firebaseUser.phoneNumber || "",
+        });
+
+        localStorage.setItem("blood_donation_token", syncResult.token);
+        onAuthSuccess(syncResult.token, syncResult.user);
+        onClose();
+        return;
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "গুগল লগইন ব্যর্থ হয়েছে!");
+      if (err.code === "auth/popup-closed-by-user") {
+        setLoading(false);
+        return;
+      }
+      console.warn("Firebase popup note:", err);
+      // Fallback to OAuth endpoint URL
+      try {
+        const currentReturnUrl = window.location.origin + window.location.pathname;
+        const data = await apiClient.getGoogleAuthUrl(currentReturnUrl);
+        const authWindow = window.open(data.url, "google_oauth_popup", "width=500,height=680");
+        if (!authWindow || authWindow.closed || typeof authWindow.closed === "undefined") {
+          window.location.href = data.url;
+        }
+      } catch (fallbackErr: any) {
+        setErrorMsg(err.message || fallbackErr.message || (lang === "bn" ? "গুগল লগইন সম্পন্ন করা যায়নি।" : "Google sign in failed."));
+      }
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Check for Firebase redirect result on mount
+  React.useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result && result.user && result.user.email) {
+          const syncResult = await apiClient.firebaseLogin({
+            email: result.user.email,
+            name: result.user.displayName || "",
+            avatarUrl: result.user.photoURL || "",
+            firebaseUid: result.user.uid,
+            phone: result.user.phoneNumber || "",
+          });
+          localStorage.setItem("blood_donation_token", syncResult.token);
+          onAuthSuccess(syncResult.token, syncResult.user);
+          onClose();
+        }
+      })
+      .catch((err) => {
+        console.error("Firebase redirect result error:", err);
+      });
+  }, [onAuthSuccess, onClose]);
 
   // Listen for Google Auth Success messaging
   React.useEffect(() => {
