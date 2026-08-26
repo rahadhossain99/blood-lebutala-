@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { X, Mail, Phone, Lock, User, MapPin, Calendar, Heart, Loader2 } from "lucide-react";
 import { BloodGroup } from "../types";
-import { BANGLADESH_DISTRICTS, getApiUrl } from "../utils";
+import { BANGLADESH_DISTRICTS } from "../utils";
+import { apiClient } from "../apiClient";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -33,18 +34,14 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
   const handleGoogleSignIn = async () => {
     setErrorMsg("");
     try {
-      const resp = await fetch(getApiUrl("/api/auth/google/url"));
-      if (!resp.ok) {
-        throw new Error("গুগল লগইন পোর্টাল লিঙ্ক পেতে ব্যর্থ হয়েছে।");
-      }
-      const data = await resp.json();
+      const data = await apiClient.getGoogleAuthUrl();
       
       const authWindow = window.open(data.url, "google_oauth_popup", "width=500,height=680");
       if (!authWindow) {
         setErrorMsg(lang === "bn" ? "পপ-আপ বন্ধ করা আছে। অনুগ্রহ করে ব্রাউজার পপ-আপ অনুমোদন করুন।" : "Popup is blocked. Please enable browser popups.");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "ਗੂਗਲ ਲੌਗਇਨ ਅਸਫਲ!");
+      setErrorMsg(err.message || "গুগল লগইন ব্যর্থ হয়েছে!");
     }
   };
 
@@ -112,16 +109,11 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
     }
 
     try {
-      const resp = await fetch(getApiUrl(url), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        throw new Error(data.error || translations.errorAction);
+      let data: { token: string; user: any };
+      if (mode === "login") {
+        data = await apiClient.login(email || phone, password);
+      } else {
+        data = await apiClient.register(body);
       }
 
       // Success

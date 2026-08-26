@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Search, MapPin, Heart, Phone, Mail, Calendar, Check, AlertCircle, Unlock, Info } from "lucide-react";
 import { BloodGroup, User } from "../types";
-import { BANGLADESH_DISTRICTS, checkDonorEligibility, getApiUrl } from "../utils";
+import { BANGLADESH_DISTRICTS, checkDonorEligibility } from "../utils";
+import { apiClient } from "../apiClient";
 
 interface DonorsSearchProps {
   currentUser: any;
@@ -44,22 +45,16 @@ export default function DonorsSearch({
   const fetchDonors = async () => {
     setLoading(true);
     try {
-      let url = "/api/donors?";
-      if (selectedGroup) url += `bloodGroup=${encodeURIComponent(selectedGroup)}&`;
-      if (selectedDistrict) url += `district=${encodeURIComponent(selectedDistrict)}&`;
-      if (onlyAvailable) url += `isAvailable=true&`;
-
       const token = localStorage.getItem("blood_donation_token");
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const resp = await fetch(getApiUrl(url), { headers });
-      if (resp.ok) {
-        const data = await resp.json();
-        setDonors(data);
-      }
+      const data = await apiClient.getDonors(
+        {
+          bloodGroup: selectedGroup || undefined,
+          district: selectedDistrict || undefined,
+          isAvailable: onlyAvailable ? true : undefined,
+        },
+        token
+      );
+      setDonors(data);
     } catch (error) {
       console.error("Failed to load donors", error);
     } finally {

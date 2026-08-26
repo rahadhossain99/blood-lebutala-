@@ -6,7 +6,8 @@ import {
   ToggleLeft, ToggleRight, Loader2, Sparkles, AlertCircle, Info, Flame 
 } from "lucide-react";
 import { BloodGroup, Appointment, DashboardStats } from "../types";
-import { BANGLADESH_DISTRICTS, getApiUrl } from "../utils";
+import { BANGLADESH_DISTRICTS } from "../utils";
+import { apiClient } from "../apiClient";
 
 interface StatsDashboardProps {
   stats: DashboardStats;
@@ -84,15 +85,10 @@ export default function StatsDashboard({
     setProfileSuccess("");
     setProfileError("");
 
-    const token = localStorage.getItem("blood_donation_token");
+    const token = localStorage.getItem("blood_donation_token") || "";
     try {
-      const resp = await fetch(getApiUrl("/api/auth/profile"), {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const data = await apiClient.updateProfile(
+        {
           name: profileName,
           phone: profilePhone,
           bloodGroup: profileBlood,
@@ -100,13 +96,9 @@ export default function StatsDashboard({
           isAvailable: profileAvail,
           lastDonationDate: profileDonationDate,
           avatarUrl: profileAvatar,
-        })
-      });
-
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || "আপডেট ব্যর্থ হয়েছে।");
-      }
+        },
+        token
+      );
 
       onUpdateUser(data.user);
       setProfileSuccess(lang === "bn" ? "প্রোফাইল সফলভাবে আপডেট করা হয়েছে!" : "Profile updated successfully!");
@@ -129,23 +121,11 @@ export default function StatsDashboard({
 
   const handleSaveStock = async () => {
     setSubmittingStock(true);
-    const token = localStorage.getItem("blood_donation_token");
+    const token = localStorage.getItem("blood_donation_token") || "";
     try {
-      const resp = await fetch(getApiUrl("/api/stocks/set"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(stockForm),
-      });
-
-      if (resp.ok) {
-        onRefreshStats();
-        setEditingStock(false);
-      } else {
-        alert(translations.errorAction);
-      }
+      await apiClient.updateBloodStocks(stockForm, token);
+      onRefreshStats();
+      setEditingStock(false);
     } catch {
       alert(translations.errorAction);
     } finally {

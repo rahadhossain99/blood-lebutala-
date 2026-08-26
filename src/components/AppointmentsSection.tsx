@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, ClipboardCheck, Calendar, MapPin, Phone, Users, FileText, CheckCircle2, XCircle, HeartHandshake, Loader2 } from "lucide-react";
 import { BloodGroup, Appointment, User } from "../types";
-import { getApiUrl } from "../utils";
+import { apiClient } from "../apiClient";
 
 interface AppointmentsSectionProps {
   currentUser: any;
@@ -46,14 +46,9 @@ export default function AppointmentsSection({
     if (!currentUser) return;
     setLoadingList(true);
     try {
-      const token = localStorage.getItem("blood_donation_token");
-      const resp = await fetch(getApiUrl("/api/appointments/my"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setAppointments(data);
-      }
+      const token = localStorage.getItem("blood_donation_token") || "";
+      const data = await apiClient.getMyAppointments(token);
+      setAppointments(data);
     } catch (err) {
       console.error("Failed to load personal appointments", err);
     } finally {
@@ -80,20 +75,10 @@ export default function AppointmentsSection({
     if (!window.confirm(lang === "bn" ? "আপনি কি এই অ্যাপয়েন্টমেন্ট বাতিল করতে চান?" : "Are you sure you want to cancel this request?")) return;
 
     try {
-      const token = localStorage.getItem("blood_donation_token");
-      const resp = await fetch(getApiUrl(`/api/appointments/${id}/status`), {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-
-      if (resp.ok) {
-        fetchMyAppointments();
-        onRefreshStats();
-      }
+      const token = localStorage.getItem("blood_donation_token") || "";
+      await apiClient.updateAppointmentStatus(id, "cancelled", token);
+      fetchMyAppointments();
+      onRefreshStats();
     } catch (err) {
       console.error(err);
     }
@@ -130,21 +115,7 @@ export default function AppointmentsSection({
 
     try {
       const token = localStorage.getItem("blood_donation_token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const resp = await fetch(getApiUrl("/api/appointments"), {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || translations.errorAction);
-      }
+      await apiClient.createAppointment(payload, token);
 
       setSuccessMsg(lang === "bn" ? "আপনার অনুরোধ সফলভাবে পোস্ট করা হয়েছে!" : "Successfully scheduled/requested!");
       onRefreshStats();
@@ -162,7 +133,6 @@ export default function AppointmentsSection({
         onClearPreSelectedDonor();
         fetchMyAppointments();
       }, 1500);
-
     } catch (err: any) {
       setErrorMsg(err.message || translations.errorAction);
     } finally {

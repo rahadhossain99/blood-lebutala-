@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { TRANSLATIONS, getApiUrl } from "./utils";
+import { TRANSLATIONS } from "./utils";
+import { apiClient } from "./apiClient";
 import { User, Appointment, DashboardStats } from "./types";
 import Navbar from "./components/Navbar";
 import HomeHero from "./components/HomeHero";
@@ -46,34 +47,25 @@ export default function App() {
     if (!token) return;
 
     try {
-      const resp = await fetch(getApiUrl("/api/auth/me"), {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setCurrentUser(data.user);
-      } else {
-        localStorage.removeItem("blood_donation_token");
-      }
+      const data = await apiClient.getMe(token);
+      setCurrentUser(data.user);
     } catch (err) {
       console.error("Session verification failed", err);
+      localStorage.removeItem("blood_donation_token");
     }
   };
 
   // Fetch real-time blood bank metrics
   const fetchDashboardStats = async () => {
     try {
-      const resp = await fetch(getApiUrl("/api/stats"));
-      if (resp.ok) {
-        const data = await resp.json();
-        setStats({
-          totalDonors: data.totalDonors,
-          availableDonors: data.availableDonors,
-          totalDonations: data.totalDonations,
-          bloodStock: data.bloodStock,
-          recentBookings: data.recentAppointments
-        });
-      }
+      const data = await apiClient.getStats();
+      setStats({
+        totalDonors: data.totalDonors,
+        availableDonors: data.availableDonors,
+        totalDonations: data.totalDonations,
+        bloodStock: data.bloodStock,
+        recentBookings: data.recentAppointments || []
+      });
     } catch (err) {
       console.error("Failed to load statistics", err);
     }
@@ -127,24 +119,12 @@ export default function App() {
     if (!token) return;
 
     try {
-      const resp = await fetch(getApiUrl(`/api/appointments/${id}/status`), {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: nextStatus })
-      });
-
-      if (resp.ok) {
-        showToast(
-          lang === "bn" ? "অ্যাপয়েন্টমেন্ট অবস্থা সফলভাবে পরিবর্তন করা হয়েছে।" : "Appointment status changed successfully.",
-          "success"
-        );
-        fetchDashboardStats();
-      } else {
-        showToast(translations.errorAction, "error");
-      }
+      await apiClient.updateAppointmentStatus(id, nextStatus, token);
+      showToast(
+        lang === "bn" ? "অ্যাপয়েন্টমেন্ট অবস্থা সফলভাবে পরিবর্তন করা হয়েছে।" : "Appointment status changed successfully.",
+        "success"
+      );
+      fetchDashboardStats();
     } catch {
       showToast(translations.errorAction, "error");
     }
