@@ -7,12 +7,18 @@ import HomeHero from "./components/HomeHero";
 import DonorsSearch from "./components/DonorsSearch";
 import StatsDashboard from "./components/StatsDashboard";
 import AppointmentsSection from "./components/AppointmentsSection";
+import GuidelinesSection from "./components/GuidelinesSection";
+import PWAInstallBanner from "./components/PWAInstallBanner";
 import AuthModal from "./components/AuthModal";
-import { AlertCircle, CheckCircle2, Heart, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, Heart, Info, ArrowUp } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
   const [lang, setLang] = useState<"bn" | "en">("bn");
-  const [currentTab, setCurrentTab] = useState<string>("home");
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    const hash = window.location.hash.replace("#", "");
+    return ["home", "search", "stats", "appointments", "guidelines"].includes(hash) ? hash : "home";
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [preSelectedDonor, setPreSelectedDonor] = useState<User | null>(null);
@@ -32,6 +38,24 @@ export default function App() {
   });
 
   const translations = TRANSLATIONS[lang];
+
+  // Hash-based page navigation synchronization
+  const handleTabChange = (tab: string) => {
+    setCurrentTab(tab);
+    window.location.hash = tab;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (["home", "search", "stats", "appointments", "guidelines"].includes(hash)) {
+        setCurrentTab(hash);
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Global dynamic toast trigger helper
   const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
@@ -72,15 +96,21 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Check if coming back from standard dynamic callback redirect
+    // Check if coming back from standard dynamic callback redirect or Google OAuth param
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("oauth_success") === "true") {
-      // Clear URL query params elegantly
-      window.history.replaceState({}, document.title, window.location.pathname);
+    const tokenFromUrl = urlParams.get("token");
+    if (tokenFromUrl) {
+      localStorage.setItem("blood_donation_token", tokenFromUrl);
+    }
+
+    if (urlParams.get("oauth_success") === "true" || tokenFromUrl) {
+      // Clear URL query params elegantly while keeping hash
+      const cleanUrl = window.location.pathname + (window.location.hash || "");
+      window.history.replaceState({}, document.title, cleanUrl);
       showToast(
         lang === "bn" 
-          ? "গুগল অথেনটিকেশন সফল হয়েছে!" 
-          : "Google login authenticated successfully!",
+          ? "গুগল সাইন-ইন সফল হয়েছে! স্বাগতম।" 
+          : "Google sign-in authenticated successfully!",
         "success"
       );
     }
@@ -109,8 +139,7 @@ export default function App() {
       lang === "bn" ? "সফলভাবে লগ-আউট সম্পন্ন হয়েছে।" : "You have logged out successfully.",
       "info"
     );
-    // Switch to landing page
-    setCurrentTab("home");
+    handleTabChange("home");
   };
 
   // Update administrative appointment status (Pending, Approved, Completed, Cancelled)
@@ -133,7 +162,7 @@ export default function App() {
   // Trigger quick direct booking from the donor query screen
   const handleTriggerBooking = (donor: User) => {
     setPreSelectedDonor(donor);
-    setCurrentTab("appointments");
+    handleTabChange("appointments");
   };
 
   return (
@@ -141,7 +170,7 @@ export default function App() {
       {/* 1. Interactive Header Bar */}
       <Navbar
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={handleTabChange}
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenAuth={() => setAuthModalOpen(true)}
@@ -150,7 +179,10 @@ export default function App() {
         translations={translations}
       />
 
-      {/* 2. Custom Animated Micro Toast alert */}
+      {/* 2. PWA Install Prompt Banner */}
+      <PWAInstallBanner lang={lang} />
+
+      {/* 3. Custom Animated Micro Toast alert */}
       {toast && (
         <div
           id="global-toast-message"
@@ -169,58 +201,109 @@ export default function App() {
         </div>
       )}
 
-      {/* 3. Main Dashboard Routing Core */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {currentTab === "home" && (
-          <HomeHero
-            setCurrentTab={setCurrentTab}
-            onOpenAuth={() => setAuthModalOpen(true)}
-            lang={lang}
-            translations={translations}
-          />
-        )}
+      {/* 4. Main Tab Pages Routing Core */}
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <AnimatePresence mode="wait">
+          {currentTab === "home" && (
+            <motion.div
+              key="page-home"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <HomeHero
+                setCurrentTab={handleTabChange}
+                onOpenAuth={() => setAuthModalOpen(true)}
+                lang={lang}
+                translations={translations}
+              />
+            </motion.div>
+          )}
 
-        {currentTab === "search" && (
-          <DonorsSearch
-            currentUser={currentUser}
-            lang={lang}
-            translations={translations}
-            onOpenAuth={() => setAuthModalOpen(true)}
-            onTriggerBooking={handleTriggerBooking}
-          />
-        )}
+          {currentTab === "search" && (
+            <motion.div
+              key="page-search"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DonorsSearch
+                currentUser={currentUser}
+                lang={lang}
+                translations={translations}
+                onOpenAuth={() => setAuthModalOpen(true)}
+                onTriggerBooking={handleTriggerBooking}
+              />
+            </motion.div>
+          )}
 
-        {currentTab === "stats" && (
-          <StatsDashboard
-            stats={stats}
-            currentUser={currentUser}
-            lang={lang}
-            translations={translations}
-            onRefreshStats={fetchDashboardStats}
-            onUpdateApptStatus={handleUpdateApptStatus}
-            onUpdateUser={setCurrentUser}
-          />
-        )}
+          {currentTab === "stats" && (
+            <motion.div
+              key="page-stats"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <StatsDashboard
+                stats={stats}
+                currentUser={currentUser}
+                lang={lang}
+                translations={translations}
+                onRefreshStats={fetchDashboardStats}
+                onUpdateApptStatus={handleUpdateApptStatus}
+                onUpdateUser={setCurrentUser}
+              />
+            </motion.div>
+          )}
 
-        {currentTab === "appointments" && (
-          <AppointmentsSection
-            currentUser={currentUser}
-            preSelectedDonor={preSelectedDonor}
-            onClearPreSelectedDonor={() => setPreSelectedDonor(null)}
-            lang={lang}
-            translations={translations}
-            onRefreshStats={fetchDashboardStats}
-            onOpenAuth={() => setAuthModalOpen(true)}
-          />
-        )}
+          {currentTab === "appointments" && (
+            <motion.div
+              key="page-appointments"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <AppointmentsSection
+                currentUser={currentUser}
+                preSelectedDonor={preSelectedDonor}
+                onClearPreSelectedDonor={() => setPreSelectedDonor(null)}
+                lang={lang}
+                translations={translations}
+                onRefreshStats={fetchDashboardStats}
+                onOpenAuth={() => setAuthModalOpen(true)}
+              />
+            </motion.div>
+          )}
+
+          {currentTab === "guidelines" && (
+            <motion.div
+              key="page-guidelines"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <GuidelinesSection
+                lang={lang}
+                translations={translations}
+                onNavigateToSearch={() => handleTabChange("search")}
+                onNavigateToRequest={() => handleTabChange("appointments")}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* 4. Elegant Minimal Page Footer */}
+      {/* 5. Elegant Minimal Page Footer */}
       <footer className="bg-slate-900 text-slate-400 py-10 mt-16 border-t border-slate-800" id="bloodlife-page-footer">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="space-y-1 text-center sm:text-left">
-            <h4 className="text-white font-bold tracking-tight text-base flex items-center justify-center sm:justify-start gap-1.5 leading-none select-none">
-              <span className="p-1 bg-red-600 rounded-lg text-white font-sans shrink-0">🩸</span>
+            <h4 className="text-white font-black tracking-tight text-base flex items-center justify-center sm:justify-start gap-2 leading-none select-none">
+              <img src="./icon.svg" alt="App Icon" className="h-6 w-6 rounded-md" />
               {translations.appName}
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mt-1">
@@ -228,23 +311,25 @@ export default function App() {
             </p>
           </div>
           
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <button onClick={() => setCurrentTab("home")} className="hover:text-white transition-colors cursor-pointer">{translations.home}</button>
+          <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-4 text-xs font-semibold">
+            <button onClick={() => handleTabChange("home")} className="hover:text-white transition-colors cursor-pointer">{translations.home}</button>
             <span>•</span>
-            <button onClick={() => setCurrentTab("search")} className="hover:text-white transition-colors cursor-pointer">{translations.findDonor}</button>
+            <button onClick={() => handleTabChange("search")} className="hover:text-white transition-colors cursor-pointer">{translations.findDonor}</button>
             <span>•</span>
-            <button onClick={() => setCurrentTab("stats")} className="hover:text-white transition-colors cursor-pointer">{translations.dashboard}</button>
+            <button onClick={() => handleTabChange("appointments")} className="hover:text-white transition-colors cursor-pointer">{translations.appointments}</button>
             <span>•</span>
-            <button onClick={() => setCurrentTab("appointments")} className="hover:text-white transition-colors cursor-pointer font-sans">{lang === "bn" ? "বুকিং" : "Schedules"}</button>
+            <button onClick={() => handleTabChange("stats")} className="hover:text-white transition-colors cursor-pointer">{translations.dashboard}</button>
+            <span>•</span>
+            <button onClick={() => handleTabChange("guidelines")} className="hover:text-white transition-colors cursor-pointer">{translations.guidelines}</button>
           </div>
           
-          <p className="text-[10px] text-slate-600 font-sans tracking-wide">
+          <p className="text-[10px] text-slate-500 font-sans tracking-wide">
             © 2026 BloodLife. {lang === "bn" ? "সকল অধিকার সংরক্ষিত।" : "All Rights Reserved."}
           </p>
         </div>
       </footer>
 
-      {/* 5. Dynamic Auth Modal Wrapper */}
+      {/* 6. Dynamic Auth Modal Wrapper */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}

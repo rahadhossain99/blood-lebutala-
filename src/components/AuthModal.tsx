@@ -49,8 +49,13 @@ export default function AuthModal({ isOpen, onClose, lang, translations, onAuthS
   React.useEffect(() => {
     const handleOAuthMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      // Accept matching domains and development local hosts
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('netlify.app')) {
+      // Accept matching domains, github.io and development local hosts
+      if (
+        !origin.endsWith('.run.app') &&
+        !origin.includes('localhost') &&
+        !origin.includes('netlify.app') &&
+        !origin.includes('github.io')
+      ) {
          return;
       }
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
